@@ -1,11 +1,5 @@
+## Running the code
 
-  # High-Fidelity Sign-Up Page
+Run `npm i` to install the dependencies.
 
-  This is a code bundle for High-Fidelity Sign-Up Page. The original project is available at https://www.figma.com/design/P8oubCzkO0fexxzvwhXf79/High-Fidelity-Sign-Up-Page.
-
-  ## Running the code
-
-  Run `npm i` to install the dependencies.
-
-  Run `npm run dev` to start the development server.
-  
+Run `npm run dev` to start the development server.
