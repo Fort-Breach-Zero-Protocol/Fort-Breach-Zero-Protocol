@@ -1,0 +1,10 @@
+body { 
+    margin: 0; 
+    background: #222; 
+    display: flex; 
+    justify-content: center; 
+    align-items: flex-start; 
+    height: 100vh; 
+    overflow: hidden; 
+} 
+canvas { }

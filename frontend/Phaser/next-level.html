@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Next Level - Game Data Received</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #222;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background: #333;
+            padding: 40px;
+            border-radius: 10px;
+            max-width: 600px;
+            text-align: center;
+        }
+        h1 {
+            color: #ff9900;
+            margin-bottom: 30px;
+        }
+        .data-item {
+            background: #444;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .label {
+            font-weight: bold;
+            color: #00aaff;
+        }
+        .value {
+            color: #00ff00;
+            font-size: 1.2em;
+        }
+        .status-won {
+            color: #00ff00;
+            font-size: 2em;
+            margin: 20px 0;
+        }
+        .error {
+            color: #ff0000;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Next Level</h1>
+        <div id="gameData"></div>
+    </div>
+
+    <script>
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Extract the data
+        const spawnsUsed = urlParams.get('spawnsUsed');
+        const status = urlParams.get('status');
+        const playerWins = urlParams.get('playerWins');
+        const enemyWins = urlParams.get('enemyWins');
+        const totalRounds = urlParams.get('totalRounds');
+        
+        // Display the data
+        const dataContainer = document.getElementById('gameData');
+        
+        if (spawnsUsed && status) {
+            dataContainer.innerHTML = `
+                <div class="status-won">🏆 ${status.toUpperCase()}! 🏆</div>
+                
+                <div class="data-item">
+                    <span class="label">Spawns Used:</span>
+                    <span class="value">${spawnsUsed}</span>
+                </div>
+                
+                <div class="data-item">
+                    <span class="label">Player Wins:</span>
+                    <span class="value">${playerWins}</span>
+                </div>
+                
+                <div class="data-item">
+                    <span class="label">Enemy Wins:</span>
+                    <span class="value">${enemyWins}</span>
+                </div>
+                
+                <div class="data-item">
+                    <span class="label">Total Rounds:</span>
+                    <span class="value">${totalRounds}</span>
+                </div>
+                
+                <h2 style="margin-top: 30px; color: #00aaff;">Ready for the next challenge?</h2>
+            `;
+            
+            // You can also use the data in JavaScript
+            console.log('Game Data Received:');
+            console.log('Spawns Used:', spawnsUsed);
+            console.log('Status:', status);
+            console.log('Player Wins:', playerWins);
+            console.log('Enemy Wins:', enemyWins);
+            console.log('Total Rounds:', totalRounds);
+            
+            // Example: Send to your backend API
+            // fetch('/api/save-game-result', {
+            //     method: 'POST',
+            //     headers: { 'Content-Type': 'application/json' },
+            //     body: JSON.stringify({
+            //         spawnsUsed: spawnsUsed,
+            //         status: status,
+            //         playerWins: playerWins,
+            //         enemyWins: enemyWins,
+            //         totalRounds: totalRounds
+            //     })
+            // });
+            
+        } else {
+            dataContainer.innerHTML = `
+                <div class="error">
+                    <p>❌ No game data received!</p>
+                    <p>Please complete the previous level first.</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
