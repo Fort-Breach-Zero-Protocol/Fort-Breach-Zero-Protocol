@@ -55,6 +55,24 @@ let abilityBtnContainer;
 let abilityBtnGraphics;
 let abilityBtnText;
 
+// Undo Button Variables
+let undoBtnContainer;
+let undoBtnGraphics;
+let undoBtnText;
+let spawnedPlayerStack = []; // Track spawned players for undo
+
+// Restart Button Variables
+let restartBtnContainer;
+let restartBtnGraphics;
+let restartBtnText;
+
+// Character Selection Variables
+let characterSelectionPanel;
+let selectedCharacter = 'adventurer'; // Default character
+let isCharacterSelected = false;
+const CHARACTER_OPTIONS = ['adventurer', 'female', 'character_male'];
+const CHARACTER_NAMES = ['Adventurer', 'Female', 'Male'];
+
 // PERSPECTIVE SETTINGS
 const PERSPECTIVE_SCALE = 0.5; 
 
@@ -69,7 +87,10 @@ function preload () {
     this.load.image('wall_bg', 'sky.jpeg');  
     this.load.image('base_bg', 'base.png'); 
     
-    this.load.spritesheet('adventurer', 'character_maleAdventurer_sheet.png', { frameWidth: 96, frameHeight: 128 });
+    this.load.spritesheet('adventurer', 'character.png', { frameWidth: 96, frameHeight: 128 });
+    this.load.spritesheet('female', 'female.png', { frameWidth: 96, frameHeight: 128 });
+    this.load.spritesheet('character_male', 'character_maleAdventurer_sheet.png', { frameWidth: 96, frameHeight: 128 });
+    this.load.spritesheet('enemy', 'enemy.png', { frameWidth: 96, frameHeight: 128 });
     this.load.image('water_static', '5368739-Photoroom.png'); 
     this.load.image('rock', 'rock.png'); 
     
@@ -106,6 +127,48 @@ function create () {
     // x, y, width, height, radius
     uiBg.fillRoundedRect(10, 10, 280, 110, 15);
     uiBg.setDepth(2999);
+
+    // UNDO BUTTON (Outside UI box, to the right)
+    let undoBtnW = 80;
+    let undoBtnH = 32;
+    let undoBtnX = 310 + (undoBtnW / 2); // Position outside the black UI box
+    let undoBtnY = 25; // Aligned with top of UI box
+    
+    undoBtnContainer = this.add.container(undoBtnX, undoBtnY);
+    undoBtnContainer.setDepth(3001);
+    
+    undoBtnGraphics = this.add.graphics();
+    
+    undoBtnText = this.add.text(0, 0, '↩ UNDO', {
+        fontSize: '14px',
+        fill: '#ffffff',
+        fontFamily: FONT_FAMILY,
+        fontStyle: 'bold'
+    }).setOrigin(0.5, 0.5);
+    
+    undoBtnContainer.add([undoBtnGraphics, undoBtnText]);
+    updateUndoButton();
+
+    // RESTART BUTTON (Below undo button)
+    let restartBtnW = 110;
+    let restartBtnH = 38;
+    let restartBtnX = 310 + (restartBtnW / 2); // Same X as undo button
+    let restartBtnY = undoBtnY + undoBtnH + 10; // Below undo button with 10px gap
+    
+    restartBtnContainer = this.add.container(restartBtnX, restartBtnY);
+    restartBtnContainer.setDepth(3001);
+    
+    restartBtnGraphics = this.add.graphics();
+    
+    restartBtnText = this.add.text(0, 0, '⟳ RESTART', {
+        fontSize: '14px',
+        fill: '#ffffff',
+        fontFamily: FONT_FAMILY,
+        fontStyle: 'bold'
+    }).setOrigin(0.5, 0.5);
+    
+    restartBtnContainer.add([restartBtnGraphics, restartBtnText]);
+    updateRestartButton();
 
     // 2. INFO TEXT
     topInfoText = this.add.text(25, 25, '', { 
@@ -222,16 +285,23 @@ function create () {
         window.location.href = `/home?${params.toString()}`;
     });
 
-    if (!this.anims.exists('run_away')) {
-        this.anims.create({ key: 'run_away', frames: this.anims.generateFrameNumbers('adventurer', { frames: [5, 9, 6, 9] }), frameRate: 8, repeat: -1 });
-    }
+    // Create animations for all character types
+    CHARACTER_OPTIONS.forEach(charKey => {
+        if (!this.anims.exists('run_away_' + charKey)) {
+            this.anims.create({ key: 'run_away_' + charKey, frames: this.anims.generateFrameNumbers(charKey, { frames: [5, 9, 6, 9] }), frameRate: 7, repeat: -1 });
+        }
+    });
+    
     if (!this.anims.exists('run_towards')) {
-        this.anims.create({ key: 'run_towards', frames: this.anims.generateFrameNumbers('adventurer', { frames: [12, 0, 13, 0] }), frameRate: 8, repeat: -1 });
+        this.anims.create({ key: 'run_towards', frames: this.anims.generateFrameNumbers('enemy', { frames: [12, 0, 13, 0] }), frameRate: 7, repeat: -1 });
     }
 
     // --- INPUT ---
     this.input.on('pointerdown', (pointer) => {
         if (interactionBlocked) return;
+        
+        // Block game interaction when character selection panel is visible
+        if (characterSelectionPanel && characterSelectionPanel.visible) return;
 
         if (startBtn.visible && startBtn.getBounds().contains(pointer.x, pointer.y)) {
             startRound(this);
@@ -253,6 +323,41 @@ function create () {
             return;
         }
 
+        // Undo button click detection
+        let undoBtnW = 80;
+        let undoBtnH = 32;
+        let undoBtnX = 310 + (undoBtnW / 2);
+        let undoBtnY = 25;
+        let undoBtnRect = new Phaser.Geom.Rectangle(undoBtnX - (undoBtnW/2), undoBtnY - (undoBtnH/2), undoBtnW, undoBtnH);
+        
+        if (undoBtnContainer.visible && undoBtnRect.contains(pointer.x, pointer.y)) {
+            if (spawnedPlayerStack.length === 0 || isRoundActive || isTacticalPhase) return;
+            
+            this.tweens.add({
+                targets: undoBtnContainer, scaleX: 0.95, scaleY: 0.95, duration: 100, yoyo: true
+            });
+            
+            undoLastSpawn(this);
+            return;
+        }
+
+        // Restart button click detection
+        let restartBtnW = 110;
+        let restartBtnH = 38;
+        let restartBtnX = 310 + (restartBtnW / 2);
+        let restartBtnY = undoBtnY + undoBtnH + 10;
+        let restartBtnRect = new Phaser.Geom.Rectangle(restartBtnX - (restartBtnW/2), restartBtnY - (restartBtnH/2), restartBtnW, restartBtnH);
+        
+        if (restartBtnContainer.visible && restartBtnRect.contains(pointer.x, pointer.y)) {
+            this.tweens.add({
+                targets: restartBtnContainer, scaleX: 0.95, scaleY: 0.95, duration: 100, yoyo: true
+            });
+            
+            // Restart the entire match
+            this.scene.restart();
+            return;
+        }
+
         if (nextRoundBtn.visible) return; 
 
         if (pointer.y < HORIZON_Y - 50) return; 
@@ -270,6 +375,9 @@ function create () {
     this.physics.add.overlap(playerGroup, enemyGroup, onMeet, null, this);
     
     updateUI();
+    
+    // --- CHARACTER SELECTION PANEL (created last so UI elements exist) ---
+    createCharacterSelectionPanel(this);
 }
 
 function resetMatchVariables() {
@@ -294,7 +402,119 @@ function resetRoundScores() {
     playerLaneCounts = [0, 0, 0];
     enemyLaneCounts = [0, 0, 0];
     activeWaterLane = -1;
+    spawnedPlayerStack = []; // Clear undo stack
     if (waterLaneGraphics) waterLaneGraphics.clear();
+}
+
+function createCharacterSelectionPanel(scene) {
+    // Create container for the selection panel
+    characterSelectionPanel = scene.add.container(GAME_W / 2, GAME_H / 2);
+    characterSelectionPanel.setDepth(4000);
+    
+    // Dark overlay background
+    let overlay = scene.add.graphics();
+    overlay.fillStyle(0x000000, 0.8);
+    overlay.fillRect(-GAME_W / 2, -GAME_H / 2, GAME_W, GAME_H);
+    characterSelectionPanel.add(overlay);
+    
+    // Panel background
+    let panelW = 500;
+    let panelH = 350;
+    let panelBg = scene.add.graphics();
+    panelBg.fillStyle(0x0f1926, 0.95);
+    panelBg.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 20);
+    panelBg.lineStyle(3, 0x00aaff);
+    panelBg.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 20);
+    characterSelectionPanel.add(panelBg);
+    
+    // Title
+    let title = scene.add.text(0, -panelH / 2 + 40, 'SELECT YOUR CHARACTER', {
+        fontSize: '24px',
+        fill: COLOR_ORANGE,
+        fontFamily: FONT_FAMILY,
+        fontStyle: 'bold'
+    }).setOrigin(0.5);
+    characterSelectionPanel.add(title);
+    
+    // Character options
+    let startX = -150;
+    let spacing = 150;
+    
+    CHARACTER_OPTIONS.forEach((charKey, index) => {
+        let x = startX + (index * spacing);
+        let y = 0;
+        
+        // Character frame background
+        let frameBg = scene.add.graphics();
+        frameBg.fillStyle(0x1a2a3a, 1);
+        frameBg.fillRoundedRect(x - 55, y - 70, 110, 140, 10);
+        frameBg.lineStyle(2, 0x00aaff);
+        frameBg.strokeRoundedRect(x - 55, y - 70, 110, 140, 10);
+        characterSelectionPanel.add(frameBg);
+        
+        // Character sprite preview
+        let charPreview = scene.add.sprite(x, y, charKey, 0);
+        charPreview.setScale(0.9);
+        characterSelectionPanel.add(charPreview);
+        
+        // Character name
+        let charName = scene.add.text(x, y + 85, CHARACTER_NAMES[index], {
+            fontSize: '14px',
+            fill: '#ffffff',
+            fontFamily: FONT_FAMILY,
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+        characterSelectionPanel.add(charName);
+        
+        // Make frame interactive
+        let hitArea = scene.add.rectangle(x, y + 10, 110, 160, 0x000000, 0);
+        hitArea.setInteractive({ useHandCursor: true });
+        characterSelectionPanel.add(hitArea);
+        
+        // Store reference for highlight
+        hitArea.frameBg = frameBg;
+        hitArea.charKey = charKey;
+        
+        hitArea.on('pointerover', () => {
+            frameBg.clear();
+            frameBg.fillStyle(0x2a4a5a, 1);
+            frameBg.fillRoundedRect(x - 55, y - 70, 110, 140, 10);
+            frameBg.lineStyle(3, COLOR_ORANGE.replace('#', '0x'));
+            frameBg.strokeRoundedRect(x - 55, y - 70, 110, 140, 10);
+        });
+        
+        hitArea.on('pointerout', () => {
+            frameBg.clear();
+            frameBg.fillStyle(0x1a2a3a, 1);
+            frameBg.fillRoundedRect(x - 55, y - 70, 110, 140, 10);
+            frameBg.lineStyle(2, 0x00aaff);
+            frameBg.strokeRoundedRect(x - 55, y - 70, 110, 140, 10);
+        });
+        
+        hitArea.on('pointerdown', () => {
+            selectedCharacter = charKey;
+            isCharacterSelected = true;
+            characterSelectionPanel.setVisible(false);
+            
+            // Block interaction briefly to prevent accidental spawn
+            interactionBlocked = true;
+            scene.time.delayedCall(100, () => { interactionBlocked = false; });
+            
+            // Show game UI elements
+            startBtn.setVisible(true);
+            abilityBtnContainer.setVisible(true);
+            undoBtnContainer.setVisible(true);
+            restartBtnContainer.setVisible(true);
+        });
+    });
+    
+    // Initially hide game UI until character is selected
+    if (!isCharacterSelected) {
+        startBtn.setVisible(false);
+        abilityBtnContainer.setVisible(false);
+        undoBtnContainer.setVisible(false);
+        restartBtnContainer.setVisible(false);
+    }
 }
 
 function updateUI() {
@@ -334,6 +554,74 @@ function updateUI() {
     }
 }
 
+function updateUndoButton() {
+    if (!undoBtnGraphics) return;
+    
+    undoBtnGraphics.clear();
+    
+    let w = 80;
+    let h = 32;
+    let canUndo = spawnedPlayerStack.length > 0 && !isRoundActive && !isTacticalPhase;
+    
+    let bgColor = canUndo ? 0x0f1926 : 0x333333;
+    let lineColor = canUndo ? 0x00aaff : 0x555555;
+    let textColor = canUndo ? '#ffffff' : '#777777';
+    
+    undoBtnGraphics.fillStyle(bgColor, 0.9);
+    undoBtnGraphics.fillRoundedRect(-w/2, -h/2, w, h, 8);
+    
+    undoBtnGraphics.lineStyle(2, lineColor);
+    undoBtnGraphics.strokeRoundedRect(-w/2, -h/2, w, h, 8);
+    
+    if (undoBtnText) {
+        undoBtnText.setFill(textColor);
+    }
+}
+
+function undoLastSpawn(scene) {
+    if (spawnedPlayerStack.length === 0) return;
+    if (isRoundActive || isTacticalPhase) return;
+    
+    // Get the last spawned player
+    let lastPlayer = spawnedPlayerStack.pop();
+    
+    if (lastPlayer && lastPlayer.active) {
+        // Restore lane count
+        let laneIndex = lastPlayer.laneIndex;
+        if (laneIndex !== undefined && playerLaneCounts[laneIndex] > 0) {
+            playerLaneCounts[laneIndex]--;
+        }
+        
+        // Restore pool and unit count
+        playerPool++;
+        playerUnitsInRound--;
+        
+        // Destroy the player sprite
+        lastPlayer.destroy();
+        
+        updateUI();
+        updateUndoButton();
+    }
+}
+
+function updateRestartButton() {
+    if (!restartBtnGraphics) return;
+    
+    restartBtnGraphics.clear();
+    
+    let w = 110;
+    let h = 38;
+    
+    let bgColor = 0x0f1926;
+    let lineColor = 0xff3333; // Red color
+    
+    restartBtnGraphics.fillStyle(bgColor, 0.9);
+    restartBtnGraphics.fillRoundedRect(-w/2, -h/2, w, h, 8);
+    
+    restartBtnGraphics.lineStyle(2, lineColor);
+    restartBtnGraphics.strokeRoundedRect(-w/2, -h/2, w, h, 8);
+}
+
 function getPerspectiveCoords(colIndex) {
     // Fixed top center positions where stone paths converge at horizon
     // All paths converge closer to center at the top
@@ -371,7 +659,7 @@ function spawnPlayerUnit(scene, x) {
     
     let spawnX = getXForY(colIndex, spawnY);
 
-    let p = playerGroup.create(spawnX, spawnY, 'adventurer');
+    let p = playerGroup.create(spawnX, spawnY, selectedCharacter);
     p.setOrigin(0.5, 1);
     p.setFrame(5);
     p.body.setSize(40, 60);
@@ -382,8 +670,13 @@ function spawnPlayerUnit(scene, x) {
 
     playerLaneCounts[colIndex]++; 
     playerPool--; 
-    playerUnitsInRound++; 
+    playerUnitsInRound++;
+    
+    // Track for undo
+    spawnedPlayerStack.push(p);
+    
     updateUI();
+    updateUndoButton();
 }
 
 function initiateTacticalPhase(scene) {
@@ -395,7 +688,9 @@ function initiateTacticalPhase(scene) {
 
     isTacticalPhase = true;
     startBtn.setVisible(false);
-    abilityBtnContainer.setVisible(false); 
+    abilityBtnContainer.setVisible(false);
+    undoBtnContainer.setVisible(false);
+    restartBtnContainer.setVisible(false);
 
     centerMessageText.setText("SELECT TARGET LANE").setFill(COLOR_CYAN).setVisible(true);
 }
@@ -437,7 +732,8 @@ function setWaterLane(scene, x) {
     isTacticalPhase = false;
     centerMessageText.setVisible(false);
     
-    updateUI(); 
+    updateUI();
+    updateUndoButton(); 
 
     interactionBlocked = true;
     scene.time.delayedCall(1000, () => {
@@ -457,6 +753,8 @@ function startRound(scene) {
     isRoundActive = true;
     startBtn.setVisible(false);
     abilityBtnContainer.setVisible(false);
+    undoBtnContainer.setVisible(false);
+    restartBtnContainer.setVisible(false);
     roundScoreText.setVisible(true);
     roundScoreText.setText('ROUND SCORE: 0 - 0');
 
@@ -466,7 +764,7 @@ function startRound(scene) {
     }
 
     playerGroup.getChildren().forEach(p => {
-        if(p.anims) p.play('run_away', true);
+        if(p.anims) p.play('run_away_' + selectedCharacter, true);
     });
 }
 
@@ -505,7 +803,7 @@ function spawnEnemyUnit(scene) {
         return; 
     }
 
-    let e = enemyGroup.create(spawnX, spawnY, 'adventurer');
+    let e = enemyGroup.create(spawnX, spawnY, 'enemy');
     e.setOrigin(0.5, 1);
     e.setFrame(12);
     e.setTint(0xff9999);
@@ -531,7 +829,7 @@ function update () {
 
     playerGroup.getChildren().forEach(p => {
         if (p.active) {
-            p.y -= 1.0; 
+            p.y -= 0.5; 
             p.x = getXForY(p.laneIndex, p.y);
             p.setDepth(p.y); 
             let depthScale = Phaser.Math.Clamp(p.y / GAME_H, 0.4, 1.2);
@@ -547,7 +845,7 @@ function update () {
 
     enemyGroup.getChildren().forEach(e => {
         if (e.active) {
-            e.y += 1.0; 
+            e.y += 0.5; 
             e.x = getXForY(e.laneIndex, e.y);
             e.setDepth(e.y);
             let depthScale = Phaser.Math.Clamp(e.y / GAME_H, 0.4, 1.2);
@@ -637,6 +935,7 @@ function prepareNextRound(scene) {
     currentRound++;
     resetRoundScores();
     updateUI();
+    updateUndoButton();
 
     centerMessageText.setVisible(false);
     nextRoundBtn.setVisible(false);
@@ -645,6 +944,8 @@ function prepareNextRound(scene) {
     
     startBtn.setVisible(true);
     abilityBtnContainer.setVisible(true);
+    undoBtnContainer.setVisible(true);
+    restartBtnContainer.setVisible(true);
 }
 
 function onMeet(p, e) {
