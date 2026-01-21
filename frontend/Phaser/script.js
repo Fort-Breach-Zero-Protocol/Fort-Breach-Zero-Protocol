@@ -1,9 +1,9 @@
 // --- DIMENSIONS ---
 const GAME_W = window.innerWidth;
 const GAME_H = window.innerHeight; 
-const BASE_HEIGHT = 120; 
+const BASE_HEIGHT = 0; 
 const PLAY_H = GAME_H - BASE_HEIGHT; 
-const HORIZON_Y = PLAY_H * 0.4; 
+const HORIZON_Y = GAME_H * 0.5; 
 
 const config = {
     type: Phaser.AUTO,
@@ -65,8 +65,8 @@ const COLOR_CYAN = '#00aaff';
 const FONT_FAMILY = '"Orbitron", sans-serif';
 
 function preload () {
-    this.load.image('floor_bg', 'floor.png'); 
-    this.load.image('wall_bg', 'wall.png');  
+    this.load.image('floor_bg', 'floor.jpeg'); 
+    this.load.image('wall_bg', 'sky.jpeg');  
     this.load.image('base_bg', 'base.png'); 
     
     this.load.spritesheet('adventurer', 'character_maleAdventurer_sheet.png', { frameWidth: 96, frameHeight: 128 });
@@ -88,11 +88,6 @@ function create () {
     let floorBg = this.add.image(GAME_W / 2, HORIZON_Y + (floorHeight / 2), 'floor_bg');
     floorBg.setDisplaySize(GAME_W, floorHeight); 
     floorBg.setDepth(-100);
-
-    let baseBg = this.add.image(GAME_W / 2, GAME_H, 'base_bg');
-    baseBg.setOrigin(0.5, 1); 
-    baseBg.setDisplaySize(GAME_W, BASE_HEIGHT); 
-    baseBg.setDepth(2000); 
 
     placeLaneMarkers(this);
 
@@ -340,15 +335,21 @@ function updateUI() {
 }
 
 function getPerspectiveCoords(colIndex) {
-    let horizonTotalW = GAME_W * PERSPECTIVE_SCALE;
-    let horizonStartX = (GAME_W - horizonTotalW) / 2;
-    let horizonLaneW = horizonTotalW / 3;
+    // Fixed top center positions where stone paths converge at horizon
+    // All paths converge closer to center at the top
+    const topPathCenters = [GAME_W * 0.315, GAME_W * 0.5, GAME_W * 0.695];
+    let topPathWidth = GAME_W * 0.045; // narrower at top to match path convergence
+    
+    let topX1 = topPathCenters[colIndex] - (topPathWidth / 2);
+    let topX2 = topPathCenters[colIndex] + (topPathWidth / 2);
 
-    let topX1 = horizonStartX + (colIndex * horizonLaneW);
-    let topX2 = topX1 + horizonLaneW;
-
-    let botX1 = colIndex * colWidth;
-    let botX2 = botX1 + colWidth;
+    // Fixed bottom center positions aligned with the visual stone paths
+    // Left path ~23.5%, Middle path ~50%, Right path ~73.5% of screen width
+    const pathCenters = [GAME_W * 0.235, GAME_W * 0.5, GAME_W * 0.735];
+    let pathWidth = GAME_W * 0.20; // match stone path width at bottom
+    
+    let botX1 = pathCenters[colIndex] - (pathWidth / 2);
+    let botX2 = pathCenters[colIndex] + (pathWidth / 2);
 
     return { topX1, topX2, botX1, botX2 };
 }
@@ -365,7 +366,7 @@ function spawnPlayerUnit(scene, x) {
     let colIndex = Math.floor(x / colWidth);
     if (colIndex > 2) colIndex = 2; 
 
-    let baseSpawnY = PLAY_H - 20; 
+    let baseSpawnY = PLAY_H - 30; 
     let spawnY = baseSpawnY - (playerLaneCounts[colIndex] * 40);
     
     let spawnX = getXForY(colIndex, spawnY);
@@ -654,12 +655,13 @@ function onMeet(p, e) {
 }
 
 function placeLaneMarkers(scene) {
-    let rock1 = scene.add.image(colWidth, PLAY_H - 10, 'rock');
+    // Position rocks between the stone paths
+    let rock1 = scene.add.image(GAME_W * 0.36, PLAY_H - 10, 'rock');
     rock1.setOrigin(0.5, 1); 
     rock1.setScale(0.05); 
     rock1.setDepth(GAME_H); 
 
-    let rock2 = scene.add.image(colWidth * 2, PLAY_H - 10, 'rock');
+    let rock2 = scene.add.image(GAME_W * 0.61, PLAY_H - 10, 'rock');
     rock2.setOrigin(0.5, 1);
     rock2.setScale(0.05); 
     rock2.setDepth(GAME_H);
