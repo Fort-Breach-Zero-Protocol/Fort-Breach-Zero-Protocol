@@ -30,7 +30,7 @@ let currentRound = 1;
 let playerWins = 0;
 let enemyWins = 0;
 
-const MAX_SPAWNS = 7;
+const MAX_SPAWNS = 10;
 let playerPool = MAX_SPAWNS;
 let enemyPool = MAX_SPAWNS;
 
@@ -73,6 +73,18 @@ let isCharacterSelected = false;
 const CHARACTER_OPTIONS = ['adventurer', 'female', 'character_male'];
 const CHARACTER_NAMES = ['Adventurer', 'Female', 'Male'];
 
+// Survival Platform Variables
+let survivalPlatformY = 0;
+let survivalPlatformRadius = 50; // Radius for collision detection
+
+// Threat Hash Ability Variables
+let threatHashBtnContainer;
+let threatHashBtnGraphics;
+let threatHashBtnText;
+let threatHashAvailable = true;
+let preCalculatedEnemySpawns = 0; // Store enemy spawn count for consistency
+let enemySpawnsPerRound = [0, 0, 0]; // Pre-distributed spawns for all 3 rounds
+
 // PERSPECTIVE SETTINGS
 const PERSPECTIVE_SCALE = 0.5; 
 
@@ -96,7 +108,10 @@ function preload () {
     
     this.load.spritesheet('fire', 'fire.png', { frameWidth: 679, frameHeight: 679 });
     
+    this.load.image('survival', 'survival.png');
+    
     this.load.image('icon', 'icon.png'); 
+    this.load.image('threat_icon', 'threat_icon.png');
 }
 
 function create () {
@@ -115,6 +130,14 @@ function create () {
     placeLaneMarkers(this);
 
     waterLaneGraphics = this.add.graphics();
+
+    // --- SURVIVAL PLATFORM (Center of middle lane) ---
+    let middleLaneX = GAME_W / 2;
+    let middleLaneY = HORIZON_Y + (PLAY_H - HORIZON_Y) / 2; // Center of playable area
+    survivalPlatformY = middleLaneY; // Store for collision detection
+    let survivalPlatform = this.add.image(middleLaneX, middleLaneY, 'survival');
+    survivalPlatform.setScale(0.1);
+    survivalPlatform.setDepth(0); // Fixed low depth so characters always appear above
 
     // --- ANIMATED FLAMES ---
     // Create fire animation
@@ -246,6 +269,28 @@ function create () {
     }).setOrigin(0, 0.5);
 
     abilityBtnContainer.add([abilityBtnGraphics, icon, abilityBtnText]);
+
+    // THREAT HASH BUTTON
+    let threatBtnW = 280;
+    let threatBtnH = 55;
+    
+    threatHashBtnContainer = this.add.container(GAME_W - 20, 175);
+    threatHashBtnContainer.setDepth(3000);
+
+    threatHashBtnGraphics = this.add.graphics();
+    
+    let threatIcon = this.add.image(-threatBtnW + 30, 0, 'threat_icon');
+    threatIcon.setDisplaySize(35, 35);
+    
+    threatHashBtnText = this.add.text(-threatBtnW + 60, 0, 'THREAT HASH', { 
+        fontSize: '18px', 
+        fill: '#ffffff', 
+        fontFamily: FONT_FAMILY,
+        fontStyle: 'bold' 
+    }).setOrigin(0, 0.5);
+
+    threatHashBtnContainer.add([threatHashBtnGraphics, threatIcon, threatHashBtnText]);
+    updateThreatHashButton();
 
     updateUI();
 
@@ -383,6 +428,24 @@ function create () {
             return;
         }
 
+        // Threat Hash button click detection
+        let threatBtnW = 280;
+        let threatBtnH = 55;
+        let threatBtnX = GAME_W - 20;
+        let threatBtnY = 175;
+        let threatBtnRect = new Phaser.Geom.Rectangle(threatBtnX - threatBtnW, threatBtnY - (threatBtnH/2), threatBtnW, threatBtnH);
+        
+        if (threatHashBtnContainer.visible && threatBtnRect.contains(pointer.x, pointer.y)) {
+            if (!threatHashAvailable) return;
+            
+            this.tweens.add({
+                targets: threatHashBtnContainer, scaleX: 0.95, scaleY: 0.95, duration: 100, yoyo: true
+            });
+            
+            useThreatHash(this);
+            return;
+        }
+
         if (nextRoundBtn.visible) return; 
 
         if (pointer.y < HORIZON_Y - 50) return; 
@@ -416,6 +479,18 @@ function resetMatchVariables() {
     interactionBlocked = false;
     activeWaterLane = -1;
     abilityAvailable = true;
+    threatHashAvailable = true;
+    
+    // Randomly distribute all enemy spawns across 3 rounds
+    // Each round gets at least 1 spawn
+    enemySpawnsPerRound = [1, 1, 1];
+    let remaining = MAX_SPAWNS - 3;
+    while (remaining > 0) {
+        let roundIndex = Phaser.Math.Between(0, 2);
+        enemySpawnsPerRound[roundIndex]++;
+        remaining--;
+    }
+    
     resetRoundScores();
 }
 
@@ -428,6 +503,7 @@ function resetRoundScores() {
     enemyLaneCounts = [0, 0, 0];
     activeWaterLane = -1;
     spawnedPlayerStack = []; // Clear undo stack
+    preCalculatedEnemySpawns = calculateEnemySpawns(); // Pre-calculate for this round
     if (waterLaneGraphics) waterLaneGraphics.clear();
 }
 
@@ -530,6 +606,7 @@ function createCharacterSelectionPanel(scene) {
             abilityBtnContainer.setVisible(true);
             undoBtnContainer.setVisible(true);
             restartBtnContainer.setVisible(true);
+            threatHashBtnContainer.setVisible(true);
         });
     });
     
@@ -539,6 +616,7 @@ function createCharacterSelectionPanel(scene) {
         abilityBtnContainer.setVisible(false);
         undoBtnContainer.setVisible(false);
         restartBtnContainer.setVisible(false);
+        threatHashBtnContainer.setVisible(false);
     }
 }
 
@@ -647,6 +725,57 @@ function updateRestartButton() {
     restartBtnGraphics.strokeRoundedRect(-w/2, -h/2, w, h, 8);
 }
 
+function updateThreatHashButton() {
+    if (!threatHashBtnGraphics) return;
+    
+    threatHashBtnGraphics.clear();
+    
+    let bgColor = threatHashAvailable ? 0x0f1926 : 0x333333;
+    let lineColor = threatHashAvailable ? 0x00cc44 : 0x555555; // Green color
+    let w = 280;
+    let h = 55;
+    
+    threatHashBtnGraphics.fillStyle(bgColor, 0.9);
+    threatHashBtnGraphics.fillRect(-w, -h/2, w, h);
+    
+    threatHashBtnGraphics.lineStyle(2, lineColor);
+    threatHashBtnGraphics.strokeRect(-w, -h/2, w, h);
+    
+    if (threatHashAvailable) {
+        threatHashBtnGraphics.beginPath();
+        threatHashBtnGraphics.moveTo(-w, -h/2 + 10);
+        threatHashBtnGraphics.lineTo(-w, -h/2);
+        threatHashBtnGraphics.lineTo(-w + 10, -h/2);
+        threatHashBtnGraphics.strokePath();
+    }
+
+    if (threatHashBtnText) {
+        if (threatHashAvailable) {
+            threatHashBtnText.setText("THREAT HASH").setFill('#ffffff');
+        } else {
+            threatHashBtnText.setText("HASH BROKEN").setFill('#777777');
+        }
+    }
+}
+
+function useThreatHash(scene) {
+    if (!threatHashAvailable) return;
+    
+    threatHashAvailable = false;
+    updateThreatHashButton();
+    
+    // Use the pre-calculated enemy spawn count
+    let enemySpawnCount = preCalculatedEnemySpawns;
+    
+    // Show the intel message
+    centerMessageText.setText(`THREAT DETECTED\nENEMY UNITS: ${enemySpawnCount}`).setFill('#00cc44').setVisible(true);
+    
+    // Hide message after 2 seconds
+    scene.time.delayedCall(2000, () => {
+        centerMessageText.setVisible(false);
+    });
+}
+
 function getPerspectiveCoords(colIndex) {
     // Fixed top center positions where stone paths converge at horizon
     // All paths converge closer to center at the top
@@ -716,6 +845,7 @@ function initiateTacticalPhase(scene) {
     abilityBtnContainer.setVisible(false);
     undoBtnContainer.setVisible(false);
     restartBtnContainer.setVisible(false);
+    threatHashBtnContainer.setVisible(false);
 
     centerMessageText.setText("SELECT TARGET LANE").setFill(COLOR_CYAN).setVisible(true);
 }
@@ -780,10 +910,11 @@ function startRound(scene) {
     abilityBtnContainer.setVisible(false);
     undoBtnContainer.setVisible(false);
     restartBtnContainer.setVisible(false);
+    threatHashBtnContainer.setVisible(false);
     roundScoreText.setVisible(true);
     roundScoreText.setText('ROUND SCORE: 0 - 0');
 
-    let enemyToSpawn = decideEnemySpawns();
+    let enemyToSpawn = preCalculatedEnemySpawns;
     for (let i = 0; i < enemyToSpawn; i++) {
         spawnEnemyUnit(scene);
     }
@@ -793,22 +924,9 @@ function startRound(scene) {
     });
 }
 
-function decideEnemySpawns() {
-    let count = 0;
-    if (currentRound === 3) {
-        count = enemyPool; 
-    } else if (currentRound === 2) {
-        if (enemyWins > playerWins) {
-            count = Math.floor(enemyPool / 2);
-        } else {
-            count = Math.max(1, enemyPool - 1);
-        }
-    } else {
-        count = Phaser.Math.Between(2, 3);
-    }
-    if (count > enemyPool) count = enemyPool;
-    if (count === 0 && enemyPool > 0) count = 1; 
-    return count;
+function calculateEnemySpawns() {
+    // Use pre-distributed spawns for the current round
+    return enemySpawnsPerRound[currentRound - 1];
 }
 
 function spawnEnemyUnit(scene) {
@@ -860,9 +978,22 @@ function update (time, delta) {
         if (p.active) {
             p.y -= moveSpeed; 
             p.x = getXForY(p.laneIndex, p.y);
-            p.setDepth(p.y); 
+            // Ensure depth is always above background elements (minimum depth of 100)
+            p.setDepth(Math.max(p.y, 100)); 
             let depthScale = Phaser.Math.Clamp(p.y / GAME_H, 0.4, 1.2);
             p.setScale(depthScale);
+
+            // Check survival platform (middle lane only, lane index 1)
+            if (p.laneIndex === 1 && !p.survivedPlatform) {
+                if (Math.abs(p.y - survivalPlatformY) < survivalPlatformRadius) {
+                    p.survivedPlatform = true; // Mark as checked
+                    if (Math.random() < 0.5) {
+                        // 50% chance to die
+                        p.destroy();
+                        return;
+                    }
+                }
+            }
 
             if (p.y < HORIZON_Y) { 
                 roundPlayerScore++;
@@ -879,6 +1010,18 @@ function update (time, delta) {
             e.setDepth(e.y);
             let depthScale = Phaser.Math.Clamp(e.y / GAME_H, 0.4, 1.2);
             e.setScale(depthScale);
+
+            // Check survival platform (middle lane only, lane index 1)
+            if (e.laneIndex === 1 && !e.survivedPlatform) {
+                if (Math.abs(e.y - survivalPlatformY) < survivalPlatformRadius) {
+                    e.survivedPlatform = true; // Mark as checked
+                    if (Math.random() < 0.5) {
+                        // 50% chance to die
+                        e.destroy();
+                        return;
+                    }
+                }
+            }
 
             // Enemies win if they reach the bottom wall (PLAY_H), not screen bottom
             if (e.y > PLAY_H) { 
@@ -975,6 +1118,8 @@ function prepareNextRound(scene) {
     abilityBtnContainer.setVisible(true);
     undoBtnContainer.setVisible(true);
     restartBtnContainer.setVisible(true);
+    threatHashBtnContainer.setVisible(true);
+    updateThreatHashButton();
 }
 
 function onMeet(p, e) {
