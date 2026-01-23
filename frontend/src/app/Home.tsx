@@ -16,6 +16,20 @@ export default function Home() {
   const username = localStorage.getItem('username') || 'Agent';
   const token = localStorage.getItem('token');
 
+  const updateUnlockedLevels = () => {
+    const completedLevels = localStorage.getItem('completedLevels');
+    if (completedLevels) {
+      const completed = JSON.parse(completedLevels);
+      const unlocked = [1, ...completed.map((level: number) => level + 1)];
+      setUnlockedLevels(unlocked);
+    }
+  };
+
+  useEffect(() => {
+    // Load completed levels from localStorage
+    updateUnlockedLevels();
+  }, []);
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -48,14 +62,23 @@ export default function Home() {
       // Clear URL parameters
       window.history.replaceState({}, '', '/home');
       
+      // Store completed level in localStorage
+      const existingCompleted = localStorage.getItem('completedLevels');
+      const completed = existingCompleted ? JSON.parse(existingCompleted) : [];
+      if (!completed.includes(completedLevel)) {
+        completed.push(completedLevel);
+        localStorage.setItem('completedLevels', JSON.stringify(completed));
+      }
+      
       // Trigger unlock animation for next level
       if (nextLevel <= 5) {
         setTimeout(() => {
           setLevelToUnlock(nextLevel);
           setShowUnlockAnimation(true);
+          // Update unlockedLevels from localStorage
+          updateUnlockedLevels();
           
           setTimeout(() => {
-            setUnlockedLevels(prev => [...prev, nextLevel]);
             setShowUnlockAnimation(false);
             setLevelToUnlock(null);
           }, 2000);
@@ -76,9 +99,38 @@ export default function Home() {
       navigate('/login');
       return;
     }
+    
     if (levelId === 1) {
-      // Redirect to Phaser game
       navigate('/game');
+      return;
+    }
+    
+    if (levelId === 2) {
+      if (unlockedLevels.includes(2)) {
+        navigate('/game2');
+      }
+      return;
+    }
+    
+    if (levelId === 3) {
+      if (unlockedLevels.includes(3)) {
+        navigate('/game3');
+      }
+      return;
+    }
+    
+    if (levelId === 4) {
+      if (unlockedLevels.includes(4)) {
+        navigate('/game4');
+      }
+      return;
+    }
+    
+    if (levelId === 5) {
+      if (unlockedLevels.includes(5)) {
+        navigate('/game5');
+      }
+      return;
     }
   };
 

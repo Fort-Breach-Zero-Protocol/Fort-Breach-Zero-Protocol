@@ -451,7 +451,7 @@ function create () {
             playerWins: playerWins,
             enemyWins: enemyWins,
             totalRounds: currentRound,
-            levelCompleted: 1
+            levelCompleted: 3
         };
         
         // Redirect to home page with parameters

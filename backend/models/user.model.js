@@ -31,6 +31,7 @@ const userSchema = new mongoose.Schema({
         select:false,
          minlength:[6,'Username must be at least 3 characters long'],
     }
+    
 })
 
 userSchema.methods.generateAuthToken = function(){

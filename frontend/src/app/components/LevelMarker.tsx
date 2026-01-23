@@ -75,6 +75,7 @@ export default function LevelMarker({
               opacity: [1, 1, 0]
             } : {}}
             transition={{ duration: 0.8 }}
+            key="lock"
           >
             <Lock size={32} color="#718096" />
           </motion.div>

@@ -5,6 +5,8 @@
   import Login from "./app/Login";
   import Home from "./app/Home";
   import PhaserGame from "./app/PhaserGame";
+  import PhaserGame1 from "./app/PhaserGame1";
+  import PhaserGame2 from "./app/PhaserGame2";
   import ProtectedWrapper from "./app/ProtectedWrapper";
   import PublicWrapper from "./app/PublicWrapper";
   import "./styles/index.css";
@@ -45,7 +47,24 @@
               </ProtectedWrapper>
             }
           />
+          <Route
+            path="/game2"
+            element={
+              <ProtectedWrapper>
+                <PhaserGame1 />
+              </ProtectedWrapper>
+            }
+          />
+          <Route
+            path="/game3"
+            element={
+              <ProtectedWrapper>
+                <PhaserGame2 />
+              </ProtectedWrapper>
+            }
+          />
           <Route path="/" element={<Navigate to="/signup" replace />} />
+
         </Routes>
       </Router>
     );
