@@ -64,3 +64,36 @@ module.exports.logoutUser = async(req,res,next)=>{
     await blackListTokenModel.create({token});
     res.status(200).json('Logged Out');
 }
+
+module.exports.completeLevel = async(req, res, next) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        const { level, points } = req.body;
+        const userId = req.user._id;
+
+        const user = await UserService.updateLevelCompletion(userId, level, points);
+
+        res.status(200).json({
+            message: 'Level completed successfully',
+            user: {
+                levelCompleted: user.levelCompleted,
+                points: user.points
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+}
+
+module.exports.getLeaderboard = async(req, res, next) => {
+    try {
+        const leaderboard = await UserService.getLeaderboard();
+        res.status(200).json(leaderboard);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+}

@@ -4,46 +4,71 @@ const jwt = require('jsonwebtoken');
 
 
 const userSchema = new mongoose.Schema({
-    fullname:{
-        firstname:{
+    fullname: {
+        firstname: {
             type: String,
             required: true,
-            minlength:[2,'First name must be 2 character long'],
+            minlength: [2, 'First name must be 2 character long'],
         },
-        lastname:{
+        lastname: {
             type: String,
-            minlength:[2,'First name must be 2 character long'],
+            minlength: [2, 'First name must be 2 character long'],
         }
     },
-    username:{
+    username: {
         type: String,
         required: true,
         unique: true,
-        minlength:[3,'Username must be at least 3 characters long'],
+        minlength: [3, 'Username must be at least 3 characters long'],
     },
-    birthdate:{
+    birthdate: {
         type: Date,
         required: true,
     },
-    password:{
-        type:String,
-        required:true,
-        select:false,
-         minlength:[6,'Username must be at least 3 characters long'],
+    password: {
+        type: String,
+        required: true,
+        select: false,
+        minlength: [6, 'Username must be at least 3 characters long'],
+    },
+    levelCompleted: {
+        type: Number,
+        default: 0,
+    },
+    points: {
+        level1: {
+            type: Number,
+            default: 0,
+        },
+        level2: {
+            type: Number,
+            default: 0,
+        },
+        level3: {
+            type: Number,
+            default: 0,
+        },
+        level4: {
+            type: Number,
+            default: 0,
+        },
+        level5: {
+            type: Number,
+            default: 0,
+        },
     }
-    
 })
 
-userSchema.methods.generateAuthToken = function(){
-    const token = jwt.sign({_id: this._id}, process.env.JWT_SECRET, {expiresIn:'24h'});
+userSchema.methods.generateAuthToken = function () {
+    const token = jwt.sign({ _id: this._id }, process.env.JWT_SECRET, { expiresIn: '24h' });
     return token;
 }
 
-userSchema.methods.comparePassword = async function(password){
+userSchema.methods.comparePassword = async function (password) {
     return await bcrypt.compare(password, this.password);
 }
 
-userSchema.statics.hashPassword = async function(password){
+userSchema.statics.hashPassword = async function (password) {
     const salt = await bcrypt.genSalt(10);
     return await bcrypt.hash(password, salt);
 }

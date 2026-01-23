@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, User, Info, Shield } from 'lucide-react';
-import { motion } from 'motion/react';
+import { LogOut, User, Info, Shield, Trophy, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import LevelMarker from './components/LevelMarker';
 import backgroundImage from '@/assets/885408bc9f9e51f743a471a27b12eef7765bbfd6.png';
+import { getUserProfile, getLeaderboard } from '@/utils/api';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -12,44 +13,50 @@ export default function Home() {
   const [unlockedLevels, setUnlockedLevels] = useState<number[]>([1]);
   const [showUnlockAnimation, setShowUnlockAnimation] = useState(false);
   const [levelToUnlock, setLevelToUnlock] = useState<number | null>(null);
+  const [userPoints, setUserPoints] = useState<{[key: string]: number}>({});
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
   const username = localStorage.getItem('username') || 'Agent';
   const token = localStorage.getItem('token');
 
-  const updateUnlockedLevels = () => {
-    const completedLevels = localStorage.getItem('completedLevels');
-    if (completedLevels) {
-      const completed = JSON.parse(completedLevels);
-      const unlocked = [1, ...completed.map((level: number) => level + 1)];
-      setUnlockedLevels(unlocked);
+  const updateUnlockedLevels = (levelCompleted: number) => {
+    // Unlock all levels up to and including the completed level + 1
+    const unlocked = [];
+    for (let i = 1; i <= Math.min(levelCompleted + 1, 5); i++) {
+      unlocked.push(i);
     }
+    setUnlockedLevels(unlocked);
   };
 
   useEffect(() => {
-    // Load completed levels from localStorage
-    updateUnlockedLevels();
-  }, []);
+    const fetchUserData = async () => {
+      if (!token) {
+        return;
+      }
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
       try {
-        const response = await fetch('http://localhost:3000/users/profile', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        if (response.ok) {
-          const user = await response.json();
-          setFullname(`${user.firstname} ${user.lastname}`);
+        const user = await getUserProfile();
+        
+        // Set user info
+        if (user.fullname) {
+          setFullname(`${user.fullname.firstname} ${user.fullname.lastname || ''}`);
+        }
+        
+        // Update unlocked levels based on backend data
+        updateUnlockedLevels(user.levelCompleted || 0);
+        
+        // Set user points
+        if (user.points) {
+          setUserPoints(user.points);
         }
       } catch (error) {
         console.error('Error fetching user profile:', error);
       }
     };
 
-    if (token) {
-      fetchUserProfile();
-    }
+    fetchUserData();
 
     // Check if returning from completed level
     const urlParams = new URLSearchParams(window.location.search);
@@ -62,27 +69,23 @@ export default function Home() {
       // Clear URL parameters
       window.history.replaceState({}, '', '/home');
       
-      // Store completed level in localStorage
-      const existingCompleted = localStorage.getItem('completedLevels');
-      const completed = existingCompleted ? JSON.parse(existingCompleted) : [];
-      if (!completed.includes(completedLevel)) {
-        completed.push(completedLevel);
-        localStorage.setItem('completedLevels', JSON.stringify(completed));
-      }
-      
       // Trigger unlock animation for next level
       if (nextLevel <= 5) {
         setTimeout(() => {
           setLevelToUnlock(nextLevel);
           setShowUnlockAnimation(true);
-          // Update unlockedLevels from localStorage
-          updateUnlockedLevels();
+          
+          // Re-fetch user data to update levels
+          fetchUserData();
           
           setTimeout(() => {
             setShowUnlockAnimation(false);
             setLevelToUnlock(null);
           }, 2000);
         }, 500);
+      } else {
+        // Re-fetch to update the UI even if no next level
+        fetchUserData();
       }
     }
   }, [token]);
@@ -91,6 +94,21 @@ export default function Home() {
     localStorage.removeItem('token');
     localStorage.removeItem('username');
     navigate('/login');
+  };
+
+  const handleLeaderboardClick = async () => {
+    setIsDropdownOpen(false);
+    setShowLeaderboard(true);
+    setLoadingLeaderboard(true);
+    
+    try {
+      const data = await getLeaderboard();
+      setLeaderboardData(data);
+    } catch (error) {
+      console.error('Error fetching leaderboard:', error);
+    } finally {
+      setLoadingLeaderboard(false);
+    }
   };
 
 
@@ -202,6 +220,13 @@ export default function Home() {
               <button className="w-full px-6 py-3 text-left text-cyan-400 hover:text-orange-400 hover:bg-[#1e3a5f]/50 flex items-center gap-3">
                 <Info size={18} />
                 About Us
+              </button>
+              <button
+                onClick={handleLeaderboardClick}
+                className="w-full px-6 py-3 text-left text-cyan-400 hover:text-orange-400 hover:bg-[#1e3a5f]/50 flex items-center gap-3 border-t border-cyan-400/20"
+              >
+                <Trophy size={18} />
+                Leaderboard
               </button>
               <button
                 onClick={handleLogout}
@@ -317,6 +342,112 @@ export default function Home() {
           </motion.div>
         </motion.div>
       )}
+
+      {/* Leaderboard Modal */}
+      <AnimatePresence>
+        {showLeaderboard && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+            onClick={() => setShowLeaderboard(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="bg-[#0f2847]/95 border-2 border-cyan-400/50 rounded-lg max-w-2xl w-full max-h-[80vh] overflow-hidden backdrop-blur-sm"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))'
+              }}
+            >
+              {/* Header */}
+              <div className="bg-gradient-to-r from-cyan-900/50 to-cyan-800/50 p-6 border-b border-cyan-400/30 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Trophy size={32} className="text-orange-400" />
+                  <h2 className="text-3xl font-bold text-cyan-400" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+                    LEADERBOARD
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setShowLeaderboard(false)}
+                  className="text-cyan-400 hover:text-orange-400 transition-colors"
+                >
+                  <X size={28} />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="overflow-y-auto max-h-[calc(80vh-120px)]">
+                {loadingLeaderboard ? (
+                  <div className="flex items-center justify-center p-12">
+                    <div className="text-cyan-400 text-xl" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                      Loading...
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-6">
+                    {leaderboardData.length === 0 ? (
+                      <div className="text-center text-cyan-400 py-8" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                        No data available
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {leaderboardData.map((player, index) => (
+                          <motion.div
+                            key={player.username}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className={`flex items-center gap-4 p-4 rounded-lg border ${
+                              player.username === username
+                                ? 'bg-cyan-900/30 border-cyan-400/60'
+                                : 'bg-[#1e3a5f]/30 border-cyan-400/20'
+                            } hover:border-cyan-400/40 transition-all`}
+                          >
+                            {/* Rank */}
+                            <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/20 to-cyan-700/20 border border-cyan-400/30">
+                              <span className="text-2xl font-bold text-cyan-400" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+                                {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+                              </span>
+                            </div>
+
+                            {/* Player Info */}
+                            <div className="flex-1">
+                              <div className="text-lg font-semibold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                                {player.fullname?.firstname} {player.fullname?.lastname || ''}
+                              </div>
+                              <div className="text-sm text-cyan-300" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                                @{player.username}
+                              </div>
+                            </div>
+
+                            {/* Stats */}
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-orange-400" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+                                {player.totalPoints}
+                              </div>
+                              <div className="text-xs text-cyan-400" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                                Total Points
+                              </div>
+                              <div className="text-xs text-cyan-300 mt-1" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                                Level {player.levelCompleted}
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

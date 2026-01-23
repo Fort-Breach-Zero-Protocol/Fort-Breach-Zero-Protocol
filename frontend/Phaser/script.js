@@ -291,23 +291,50 @@ function create () {
         fontStyle: 'bold'
     }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setVisible(false).setDepth(3000);
 
-    nextLevelBtn.on('pointerdown', () => {
-        // Calculate spawns used
+    nextLevelBtn.on('pointerdown', async () => {
+        // Calculate spawns used and points
         const spawnsUsed = MAX_SPAWNS - playerPool;
+        const points = 100 - spawnsUsed;
         
-        // Prepare data to send
-        const gameData = {
-            spawnsUsed: spawnsUsed,
-            status: 'won',
-            playerWins: playerWins,
-            enemyWins: enemyWins,
-            totalRounds: currentRound,
-            levelCompleted: 1
-        };
-        
-        // Redirect to home page with parameters
-        const params = new URLSearchParams(gameData);
-        window.location.href = `/home?${params.toString()}`;
+        try {
+            // Get token from localStorage
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                alert('Please login to save your progress');
+                window.location.href = '/login';
+                return;
+            }
+            
+            // Send completion data to backend
+            const response = await fetch('http://localhost:3000/user/complete-level', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    level: 1,
+                    points: points
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Level completed successfully:', data);
+                
+                // Redirect to home page with success indicator
+                window.location.href = '/home?levelCompleted=1';
+            } else {
+                const errorData = await response.json();
+                alert('Failed to save progress: ' + (errorData.message || 'Unknown error'));
+                window.location.href = '/home';
+            }
+        } catch (error) {
+            console.error('Error saving level completion:', error);
+            alert('Failed to save progress. Redirecting to home...');
+            window.location.href = '/home';
+        }
     });
 
     // Create animations for all character types

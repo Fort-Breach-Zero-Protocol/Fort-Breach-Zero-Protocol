@@ -18,5 +18,15 @@ userController.loginUser);
 
 router.get('/profile',authMiddleWare.authUser,userController.getUserProfile);
 router.get('/logout',authMiddleWare.authUser,userController.logoutUser);
+router.get('/leaderboard',authMiddleWare.authUser,userController.getLeaderboard);
+
+router.post('/complete-level',
+    authMiddleWare.authUser,
+    [
+        body('level').isInt({ min: 1, max: 5 }).withMessage('Level must be between 1 and 5'),
+        body('points').optional().isInt({ min: 0 }).withMessage('Points must be a non-negative integer')
+    ],
+    userController.completeLevel
+);
 
 module.exports = router;
