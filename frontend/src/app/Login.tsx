@@ -5,6 +5,7 @@ import { Eye, EyeOff, Lock, User, Shield } from 'lucide-react';
 import { motion } from 'motion/react';
 import bgImage from '@/assets/885408bc9f9e51f743a471a27b12eef7765bbfd6.png';
 import axios from 'axios';
+import { toast } from 'sonner';
 
 interface LoginData {
   username: string;
@@ -58,15 +59,17 @@ export default function Login() {
         // Save token and username to localStorage
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('username', loginData.username);
-        alert('Login successful!');
+        toast.success('Login successful!',{
+          duration: 2000,
+        });
         navigate('/home');
       }
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const errorMessage = error.response?.data?.message || 'Invalid username or password. Please try again.';
-        alert(errorMessage);
+        toast.error(errorMessage);
       } else {
-        alert('An unexpected error occurred. Please try again.');
+        toast.error('An unexpected error occurred. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -261,7 +264,7 @@ export default function Login() {
                   }}
                   className="text-orange-500 hover:text-orange-400 transition-colors bg-none border-none cursor-pointer"
                 >
-                  Deploy Account
+                  Create Account
                 </button>
               </p>
             </form>

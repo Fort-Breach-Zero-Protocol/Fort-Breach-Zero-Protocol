@@ -19,6 +19,31 @@ const config = {
 
 const game = new Phaser.Game(config);
 
+// Toast helper using Toastify (loaded via CDN in index.html)
+function showToast(message, type = 'info') {
+    const colors = {
+        success: '#22c55e',
+        error: '#ef4444',
+        warning: '#f97316',
+        info: '#0ea5e9'
+    };
+
+    const background = colors[type] || colors.info;
+
+    if (typeof Toastify === 'function') {
+        Toastify({
+            text: message,
+            duration: 3000,
+            gravity: 'top',
+            position: 'center',
+            close: true,
+            style: { background }
+        }).showToast();
+    } else {
+        console.warn('Toastify not available:', message);
+    }
+}
+
 // --- VARIABLES ---
 let playerGroup, enemyGroup;
 let isRoundActive = false;
@@ -302,8 +327,8 @@ function create () {
             const token = localStorage.getItem('token');
             
             if (!token) {
-                alert('Please login to save your progress');
-                window.location.href = '/login';
+                showToast('Please login to save your progress', 'warning');
+                (window.top || window).location.href = '/login';
                 return;
             }
             
@@ -324,17 +349,18 @@ function create () {
                 const data = await response.json();
                 console.log('Level completed successfully:', data);
                 
-                // Redirect to home page with success indicator
-                window.location.href = '/home?levelCompleted=1';
+                // Flag for home page to reset history, then redirect without leaving a back entry
+                sessionStorage.setItem('resetHistoryOnHome', 'true');
+                (window.top || window).location.replace('/home?levelCompleted=1');
             } else {
                 const errorData = await response.json();
-                alert('Failed to save progress: ' + (errorData.message || 'Unknown error'));
-                window.location.href = '/home';
+                showToast('Failed to save progress: ' + (errorData.message || 'Unknown error'), 'error');
+                (window.top || window).location.href = '/home';
             }
         } catch (error) {
             console.error('Error saving level completion:', error);
-            alert('Failed to save progress. Redirecting to home...');
-            window.location.href = '/home';
+            showToast('Failed to save progress. Redirecting to home...', 'error');
+            (window.top || window).location.href = '/home';
         }
     });
 
@@ -736,7 +762,7 @@ function spawnPlayerUnit(scene, x) {
 function initiateTacticalPhase(scene) {
     if (!abilityAvailable) return;
     if (playerUnitsInRound === 0 && playerPool > 0) {
-        alert("Place at least one unit first!");
+        showToast("Place at least one unit first!", 'warning');
         return;
     }
 
@@ -801,7 +827,7 @@ function setWaterLane(scene, x) {
 function startRound(scene) {
     if (playerUnitsInRound === 0) {
         if (playerPool > 0) {
-            alert("Place at least one unit!");
+            showToast("Place at least one unit!", 'warning');
             return;
         }
     }

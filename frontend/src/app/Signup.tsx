@@ -5,6 +5,7 @@ import { Eye, EyeOff, Lock, User, Calendar, Shield } from 'lucide-react';
 import { motion } from 'motion/react';
 import bgImage from '@/assets/885408bc9f9e51f743a471a27b12eef7765bbfd6.png';
 import axios from 'axios';
+import { toast } from 'sonner';
 
 interface FormData {
   firstName: string;
@@ -84,15 +85,15 @@ export default function Signup() {
         // Save token and username to localStorage
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('username', formData.username);
-        alert('Account created successfully!');
+        toast.success('Account created successfully! Redirecting to home...');
         navigate('/home');
       }
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const errorMessage = error.response?.data?.message || error.response?.data?.errors?.[0]?.msg || 'Failed to create account. Please try again.';
-        alert(errorMessage);
+        toast.error(errorMessage);
       } else {
-        alert('An unexpected error occurred. Please try again.');
+        toast.error('An unexpected error occurred. Please try again.');
       }
     } finally {
       setIsLoading(false);

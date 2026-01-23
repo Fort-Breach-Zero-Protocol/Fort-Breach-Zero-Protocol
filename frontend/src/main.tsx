@@ -17,6 +17,7 @@ import PhaserGame3 from "./app/PhaserGame3";
 import PhaserGame4 from "./app/PhaserGame4";
 import ProtectedWrapper from "./app/ProtectedWrapper";
 import PublicWrapper from "./app/PublicWrapper";
+import { Toaster } from "sonner";
 import "./styles/index.css";
 
 function App() {
@@ -105,6 +106,7 @@ function App() {
         />
         <Route path="/" element={<Navigate to="/signup" replace />} />
       </Routes>
+      <Toaster richColors closeButton position="top-center" duration={4000} />
     </Router>
   );
 }

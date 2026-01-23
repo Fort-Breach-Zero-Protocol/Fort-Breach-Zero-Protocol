@@ -21,6 +21,29 @@ export default function Home() {
   const username = localStorage.getItem('username') || 'Agent';
   const token = localStorage.getItem('token');
 
+  // When arriving from a completed level, wipe in-app history and pin the stack to /home
+  useEffect(() => {
+    const shouldResetHistory = sessionStorage.getItem('resetHistoryOnHome') === 'true';
+    if (!shouldResetHistory) return;
+
+    const history = (window.top || window).history;
+    history.replaceState(null, '', '/home');
+    history.pushState(null, '', '/home');
+
+    const handlePopState = () => {
+      history.pushState(null, '', '/home');
+    };
+
+    (window.top || window).addEventListener('popstate', handlePopState);
+
+    // Clear the flag so normal navigation works on future visits
+    sessionStorage.removeItem('resetHistoryOnHome');
+
+    return () => {
+      (window.top || window).removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
   const updateUnlockedLevels = (levelCompleted: number) => {
     // Unlock all levels up to and including the completed level + 1
     const unlocked = [];
