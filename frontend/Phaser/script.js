@@ -45,7 +45,8 @@ let roundEnemyScore = 0;
 let activeWaterLane = -1; 
 let waterLaneGraphics; 
 
-let abilityAvailable = true; 
+let abilityAvailable = true;
+let abilitiesUsed = 0; 
 
 let topInfoText, roundScoreText, centerMessageText;
 let startBtn, nextRoundBtn, nextLevelBtn;
@@ -292,9 +293,9 @@ function create () {
     }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setVisible(false).setDepth(3000);
 
     nextLevelBtn.on('pointerdown', async () => {
-        // Calculate spawns used and points
+        // Calculate spawns used and abilities used, then calculate points
         const spawnsUsed = MAX_SPAWNS - playerPool;
-        const points = 100 - spawnsUsed;
+        const points = 100 - spawnsUsed - (5 * abilitiesUsed);
         
         try {
             // Get token from localStorage
@@ -443,6 +444,7 @@ function resetMatchVariables() {
     interactionBlocked = false;
     activeWaterLane = -1;
     abilityAvailable = true;
+    abilitiesUsed = 0;
     resetRoundScores();
 }
 
@@ -745,6 +747,7 @@ function initiateTacticalPhase(scene) {
     restartBtnContainer.setVisible(false);
 
     centerMessageText.setText("SELECT TARGET LANE").setFill(COLOR_CYAN).setVisible(true);
+    console.log('Abilities used: ' + abilitiesUsed);
 }
 
 function setWaterLane(scene, x) {
@@ -752,6 +755,7 @@ function setWaterLane(scene, x) {
     if (colIndex > 2) colIndex = 2;
     
     activeWaterLane = colIndex; 
+    abilitiesUsed++;
     abilityAvailable = false; 
 
     waterLaneGraphics.clear();

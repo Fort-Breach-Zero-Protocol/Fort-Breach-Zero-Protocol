@@ -47,7 +47,8 @@ let roundEnemyScore = 0;
 let activeWaterLane = -1; 
 let waterLaneGraphics; 
 
-let abilityAvailable = true; 
+let abilityAvailable = true;
+let abilitiesUsed = 0;
 
 let topInfoText, roundScoreText, centerMessageText;
 let startBtn, nextRoundBtn, nextLevelBtn;
@@ -526,9 +527,9 @@ function create () {
     }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setVisible(false).setDepth(3000);
 
     nextLevelBtn.on('pointerdown', async () => {
-        // Calculate spawns used and points
+        // Calculate spawns used and abilities used, then calculate points
         const spawnsUsed = MAX_SPAWNS - playerPool;
-        const points = 100 - spawnsUsed;
+        const points = 100 - spawnsUsed - (5 * abilitiesUsed);
         
         try {
             const token = localStorage.getItem('token');
@@ -703,7 +704,8 @@ function resetMatchVariables() {
     abilityAvailable = true;
     threatHashAvailable = true;
     recursiveCallAvailable = false; 
-    recursiveCallUsed = false; 
+    recursiveCallUsed = false;
+    abilitiesUsed = 0; 
     previousRoundPlayerLanes = [0, 0, 0, 0, 0];
     isCharacterSelected = false; 
     
@@ -1508,6 +1510,7 @@ function setWaterLane(scene, x) {
     if (colIndex > 4) colIndex = 4;
     
     activeWaterLane = colIndex; 
+    abilitiesUsed++;
     abilityAvailable = false; 
 
     waterLaneGraphics.clear();
