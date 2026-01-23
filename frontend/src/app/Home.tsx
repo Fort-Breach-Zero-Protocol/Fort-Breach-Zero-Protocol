@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, User, Info, Shield, Trophy, X } from "lucide-react";
+import { LogOut, User, Info, Shield, Trophy, X, BookOpen } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import LevelMarker from "./components/LevelMarker";
 import backgroundImage from "@/assets/885408bc9f9e51f743a471a27b12eef7765bbfd6.png";
@@ -267,6 +267,16 @@ export default function Home() {
               >
                 <Info size={18} />
                 About Us
+              </button>
+              <button
+                onClick={() => {
+                  setIsDropdownOpen(false);
+                  navigate("/game-info");
+                }}
+                className="w-full px-6 py-3 text-left text-cyan-400 hover:text-orange-400 hover:bg-[#1e3a5f]/50 flex items-center gap-3 border-t border-cyan-400/20"
+              >
+                <BookOpen size={18} />
+                Game Info
               </button>
               <button
                 onClick={handleLeaderboardClick}

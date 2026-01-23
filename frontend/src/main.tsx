@@ -8,6 +8,7 @@ import {
 import Signup from "./app/Signup";
 import Login from "./app/Login";
 import Home from "./app/Home";
+import GameInfo from "./app/GameInfo";
 import AboutUs from "./app/AboutUs";
 import PhaserGame from "./app/PhaserGame";
 import PhaserGame1 from "./app/PhaserGame1";
@@ -43,6 +44,14 @@ function App() {
           element={
             <ProtectedWrapper>
               <Home />
+            </ProtectedWrapper>
+          }
+        />
+        <Route
+          path="/game-info"
+          element={
+            <ProtectedWrapper>
+              <GameInfo />
             </ProtectedWrapper>
           }
         />
